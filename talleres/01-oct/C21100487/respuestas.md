@@ -1,11 +1,8 @@
 # Taller · quitar la mutación
 
-Nombre:
-Número de control:
-Equipo:
-
-Copia este archivo a `talleres/01-oct/<tu número de control>/respuestas.md` en el repositorio de tu equipo,
-junto con tu `sin_mutacion.ex`, y llena la tabla. Entrega: hoy antes de las 23:59.
+Nombre: Israel De la Vega Hernandez.
+Número de control: C211004887
+Equipo: 10
 
 | # | Función | ¿Qué muta la versión de TypeScript? | ¿Quién más se entera del cambio? |
 |---|---|---|---|
