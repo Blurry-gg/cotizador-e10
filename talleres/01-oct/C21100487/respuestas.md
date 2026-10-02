@@ -8,7 +8,7 @@ Equipo: 10
 |---|---|---|---|
 | 1 | total_pesos | let total| es local|
 | 2 | marcar_urgentes | los objetos| quien los tenga|
-| 3 | aplicar_descuento | El arreglo prestado| |
+| 3 | aplicar_descuento | El arreglo prestado| El que lo llama|
 | 4 | contar_por_tipo | const conteo| es local|
 | 5 | sin_duplicados | set y el arreglo| es local|
 
