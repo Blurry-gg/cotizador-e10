@@ -1,0 +1,19 @@
+# Copien este archivo a .github/workflows/motor.yml en el repositorio del equipo.
+# Corre las pruebas del motor en Elixir en cada push y en cada pull request.
+name: motor
+on: [push, pull_request]
+jobs:
+  motor:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: motor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '26'
+          elixir-version: '1.16'
+      - run: mix deps.get
+      - run: mix format --check-formatted
+      - run: mix test
