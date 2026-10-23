@@ -41,25 +41,33 @@ defmodule Cotizador do
 
   defp validar(_embarque, _reglas), do: :ok
 
-  # Etapa 2: flete bruto, descuento, flete y cuota del puente.
-  # El recargo y el mínimo todavía en 0 (etapa 3).
+  # Flete bruto, descuento, flete, cuota del puente, recargo y ajuste al mínimo.
   defp calcular(embarque, reglas) do
     flete_bruto = reglas.tarifa_km * embarque.distancia_km
     descuento = descuento(embarque.peso_kg, flete_bruto, reglas.descuento)
     flete = flete_bruto - descuento
     # El ! es a propósito: validar ya rechazó los puentes que no existen.
     cuota_puente = Map.fetch!(reglas.cuota_puente, embarque.puente)
+    # Igual con el tipo: validar ya rechazó los tipos que no existen.
+    %{pct: p, fija: fija} = Map.fetch!(reglas.recargo, embarque.tipo)
+    recargo = pct(base_recargo(reglas.base_recargo, flete, cuota_puente), p) + fija
+    sin_minimo = flete + cuota_puente + recargo
+    total = max(sin_minimo, reglas.minimo)
 
     %{
       flete_bruto: flete_bruto,
       descuento: descuento,
       flete: flete,
       cuota_puente: cuota_puente,
-      recargo: 0,
-      ajuste_minimo: 0,
-      total: flete + cuota_puente
+      recargo: recargo,
+      ajuste_minimo: total - sin_minimo,
+      total: total
     }
   end
+
+  # Sobre qué monto se cobra el porcentaje del recargo: una cláusula por base.
+  defp base_recargo(:flete, flete, _cuota_puente), do: flete
+  defp base_recargo(:subtotal, flete, cuota_puente), do: flete + cuota_puente
 
   # El criterio decide si el peso exacto del umbral lleva descuento: una cláusula por criterio.
   defp descuento(peso, flete_bruto, %{criterio: :a_partir_de, umbral_kg: u, pct: p})
