@@ -19,6 +19,52 @@ defmodule Cotizador do
     end
   end
 
+  @doc """
+  Cotiza un lote de embarques y resume el resultado.
+
+  Regresa `%{cotizados: n, rechazados: [{id, motivo}, ...], total: centavos, por_puente: %{...}}`.
+  Los rechazados van en el orden en que llegaron y `por_puente` trae siempre todos los puentes.
+  """
+  def resumen(embarques, reglas) do
+    # Los puentes salen de las reglas, todos en 0, para que siempre estén aunque nadie los cruce.
+    por_puente = Map.new(reglas.cuota_puente, fn {puente, _cuota} -> {puente, 0} end)
+    inicial = %{cotizados: 0, rechazados: [], cotizaciones: [], por_puente: por_puente}
+
+    embarques
+    |> Enum.map(&{&1, cotizar(&1, reglas)})
+    |> Enum.reduce(inicial, &acumular/2)
+    |> cerrar()
+  end
+
+  # Una cláusula por resultado de cotizar: el que pasó suma, el rechazado se anota.
+  defp acumular({embarque, {:ok, cotizacion}}, acc) do
+    %{
+      acc
+      | cotizados: acc.cotizados + 1,
+        cotizaciones: [cotizacion | acc.cotizaciones],
+        por_puente: Map.update!(acc.por_puente, embarque.puente, &(&1 + cotizacion.total))
+    }
+  end
+
+  defp acumular({embarque, {:error, motivo}}, acc) do
+    %{acc | rechazados: [{embarque.id, motivo} | acc.rechazados]}
+  end
+
+  # Los rechazados se fueron pegando al frente: se invierten una sola vez, al final.
+  defp cerrar(acc) do
+    %{
+      cotizados: acc.cotizados,
+      rechazados: Enum.reverse(acc.rechazados),
+      total: sumar_totales(acc.cotizaciones),
+      por_puente: acc.por_puente
+    }
+  end
+
+  # Recursiva a mano, sin Enum: la lista vacía suma 0; si no, el total de la primera
+  # más la suma del resto.
+  defp sumar_totales([]), do: 0
+  defp sumar_totales([cotizacion | resto]), do: cotizacion.total + sumar_totales(resto)
+
   # Una cláusula por motivo, en el orden del enunciado: la primera que encaja, gana.
   defp validar(%{peso_kg: p}, _reglas) when p <= 0, do: {:error, :peso_invalido}
   defp validar(%{distancia_km: d}, _reglas) when d <= 0, do: {:error, :distancia_invalida}
