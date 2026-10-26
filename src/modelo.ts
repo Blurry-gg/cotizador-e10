@@ -146,7 +146,8 @@ export function cotizar(b: Borrador, r: Reglas): Cotizado | Rechazado {
   return { estado: 'cotizado', embarque: v.valor, cotizacion: calcular(v.valor, r) };
 }
 
-// Etapa 3. Por la firma, solo un Cotizado se puede despachar.
-export function despachar(_c: Cotizado, _folio: string): Despachado {
-  throw new Error('por implementar');
+// Por la firma, solo un Cotizado se puede despachar: un borrador o un rechazado no compilan.
+// Regresa un estado nuevo; el cotizado que recibió no se toca.
+export function despachar(c: Cotizado, folio: string): Despachado {
+  return { estado: 'despachado', embarque: c.embarque, cotizacion: c.cotizacion, folio };
 }
