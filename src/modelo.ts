@@ -81,9 +81,69 @@ export type Estado = Borrador | Cotizado | Rechazado | Despachado;
 // El {:ok, valor} | {:error, motivo} de Elixir: hay que preguntar r.ok antes de leer r.valor.
 export type Resultado<T, E> = { readonly ok: true; readonly valor: T } | { readonly ok: false; readonly error: E };
 
-// Etapa 2.
-export function cotizar(_b: Borrador, _r: Reglas): Cotizado | Rechazado {
-  throw new Error('por implementar');
+// Lo que cambia por tipo de carga vive en esta tabla, no en un if sobre el tipo (taller 4).
+// Record obliga a que esté cada tipo: si se agrega uno a Carga, esto no compila hasta llenarlo.
+interface Politica {
+  readonly respetaPesoMaximo: boolean;
+}
+
+const POLITICAS: Readonly<Record<Carga['tipo'], Politica>> = {
+  general: { respetaPesoMaximo: true },
+  refrigerada: { respetaPesoMaximo: true },
+  peligrosa: { respetaPesoMaximo: true },
+  // Viaja con permiso especial: puede pasar del peso máximo.
+  sobredimensionada: { respetaPesoMaximo: false },
+};
+
+// Un porcentaje, redondeado al centavo, las mitades hacia arriba. Es el div(monto * p + 50, 100)
+// del motor: con montos positivos, Math.floor da lo mismo.
+const pct = (monto: number, p: number): number => Math.floor((monto * p + 50) / 100);
+
+const ok = <T>(valor: T): Resultado<T, never> => ({ ok: true, valor });
+const error = <E>(e: E): Resultado<never, E> => ({ ok: false, error: e });
+
+// Los tres motivos, en el orden del enunciado: el primero que aplica, gana.
+function validar(e: Embarque, r: Reglas): Resultado<Embarque, Motivo> {
+  if (e.pesoKg <= 0) return error('peso_invalido');
+  if (e.distanciaKm <= 0) return error('distancia_invalida');
+  if (POLITICAS[e.tipo].respetaPesoMaximo && e.pesoKg > r.pesoMaximoKg) return error('excede_peso_maximo');
+  return ok(e);
+}
+
+// El criterio es un dato de las reglas, no un tipo de carga: aquí sí va un ternario.
+function descuento(pesoKg: number, fleteBruto: number, d: Reglas['descuento']): number {
+  const aplica = d.criterio === 'a_partir_de' ? pesoKg >= d.umbralKg : pesoKg > d.umbralKg;
+  return aplica ? pct(fleteBruto, d.pct) : 0;
+}
+
+function calcular(e: Embarque, r: Reglas): Cotizacion {
+  const fleteBruto = r.tarifaKm * e.distanciaKm;
+  const desc = descuento(e.pesoKg, fleteBruto, r.descuento);
+  const flete = fleteBruto - desc;
+  const cuotaPuente = r.cuotaPuente[e.puente];
+  const { pct: p, fija } = r.recargo[e.tipo];
+  const base = r.baseRecargo === 'flete' ? flete : flete + cuotaPuente;
+  const recargo = pct(base, p) + fija;
+  const sinMinimo = flete + cuotaPuente + recargo;
+  const total = Math.max(sinMinimo, r.minimo);
+
+  return {
+    id: e.id,
+    fleteBruto,
+    descuento: desc,
+    flete,
+    cuotaPuente,
+    recargo,
+    ajusteMinimo: total - sinMinimo,
+    total,
+  };
+}
+
+// Validar y, solo si pasa, calcular: el with del motor.
+export function cotizar(b: Borrador, r: Reglas): Cotizado | Rechazado {
+  const v = validar(b.embarque, r);
+  if (!v.ok) return { estado: 'rechazado', embarque: b.embarque, motivo: v.error };
+  return { estado: 'cotizado', embarque: v.valor, cotizacion: calcular(v.valor, r) };
 }
 
 // Etapa 3. Por la firma, solo un Cotizado se puede despachar.
